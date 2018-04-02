@@ -12,6 +12,11 @@
     curl localhost:4000/api/results
     ```
 
+* Get a result
+    ```
+    curl localhost:4000/api/result/{id}
+    ```
+
 
 ## Lines of code
 ```
