@@ -38,7 +38,8 @@ func Scrape(url string) (ScraperResult, error) {
 
 	bytes, err := ioutil.ReadAll(resp.Body)
 	scraperResult := ScraperResult{
-		Title:   "Title",
+		ID:      url,     // TODO: Replace this with an unique key
+		Title:   "Title", // TODO: Replace this with the title of the page
 		Date:    time.Now(),
 		URL:     url,
 		Content: string(bytes),
@@ -48,7 +49,7 @@ func Scrape(url string) (ScraperResult, error) {
 }
 
 // GetScraperResult Get one ScraperResult with an ID as the param
-// Example: curl localhost:4000/api/result/{key}
+// Example: curl localhost:4000/api/v1/result/{key}
 func GetScraperResult() func(*gin.Context) {
 	return gin.HandlerFunc(func(c *gin.Context) {
 		id := c.Param("id")
@@ -82,13 +83,13 @@ func main() {
 	jobs = make(chan ScraperTask)
 	logger = make(chan string)
 
-	router := gin.New()
-	router.Use(gin.Logger())
-	api := router.Group("/api/")
+	router := gin.New()             // Creates a router
+	router.Use(gin.Logger())        // Add the logger middleware
+	api := router.Group("/api/v1/") // Create a new API group
 	{
-		api.GET("/result/:id", GetScraperResult())
-		api.GET("/results", GetAllScraperResults())
-		api.POST("/scraper", AddScraper())
+		api.GET("/result/:id", GetScraperResult())  // Get a result from an ID
+		api.GET("/results", GetAllScraperResults()) // Get all results
+		api.POST("/scraper", AddScraper())          // Add a new task
 	}
 
 	go func() {
