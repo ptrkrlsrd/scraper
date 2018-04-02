@@ -14,11 +14,13 @@ var jobs chan ScraperTask
 var logger chan string
 var results map[string]ScraperResult
 
+// ScraperTask A task containing the URL of the page you want to scrape and the delay
 type ScraperTask struct {
 	URL  string
 	Time uint64
 }
 
+// ScraperResult The result of a scraping
 type ScraperResult struct {
 	ID      string
 	Title   string
@@ -27,6 +29,7 @@ type ScraperResult struct {
 	Content string
 }
 
+// Scrape Scrapes the given URL, and returns a ScraperResult(plus an error)
 func Scrape(url string) (ScraperResult, error) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -34,11 +37,18 @@ func Scrape(url string) (ScraperResult, error) {
 	}
 
 	bytes, err := ioutil.ReadAll(resp.Body)
-	scraperResult := ScraperResult{Title: "Title", Date: time.Now(), URL: url, Content: string(bytes)}
+	scraperResult := ScraperResult{
+		Title:   "Title",
+		Date:    time.Now(),
+		URL:     url,
+		Content: string(bytes),
+	}
 
 	return scraperResult, nil
 }
 
+// GetScraperResult Get one ScraperResult with an ID as the param
+// Example: curl localhost:4000/api/result/{key}
 func GetScraperResult() func(*gin.Context) {
 	return gin.HandlerFunc(func(c *gin.Context) {
 		id := c.Param("id")
@@ -47,12 +57,16 @@ func GetScraperResult() func(*gin.Context) {
 	})
 }
 
+// GetAllScraperResults Returns all the results
 func GetAllScraperResults() func(*gin.Context) {
 	return gin.HandlerFunc(func(c *gin.Context) {
 		c.JSON(200, results)
 	})
 }
 
+// AddScraper Add a new scraper from JSON-data representing the ScraperTask struct
+// Example data: {"URL": "https://google.com", "Time": 10}
+// The URL key represents the URL you want to scrape, while the Time key represents the delay
 func AddScraper() func(*gin.Context) {
 	return gin.HandlerFunc(func(c *gin.Context) {
 		var scraperTask ScraperTask
@@ -85,7 +99,7 @@ func main() {
 					for {
 						time.Sleep(time.Duration(d.Time) * time.Second)
 						scraperResult, _ := Scrape(d.URL)
-						key := "key" //scraperResult.URL
+						key := d.URL
 						results[key] = scraperResult
 						logger <- fmt.Sprintf("Scraped URL %s @ %s", scraperResult.URL, scraperResult.Date)
 					}
