@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -10,14 +12,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var jobs chan ScraperTask
-var logger chan string
-var results map[string]ScraperResult
+var results map[string]map[time.Time]ScraperResult
 
 // ScraperTask A task containing the URL of the page you want to scrape and the delay
 type ScraperTask struct {
-	URL  string
-	Time uint64
+	Key  string
+	URL  string `json:"url"`
+	Time uint64 `json:"time"`
 }
 
 // ScraperResult The result of a scraping
@@ -37,6 +38,10 @@ func Scrape(url string) (ScraperResult, error) {
 	}
 
 	bytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return ScraperResult{}, err
+	}
+
 	scraperResult := ScraperResult{
 		ID:      url,     // TODO: Replace this with an unique key
 		Title:   "Title", // TODO: Replace this with the title of the page
@@ -53,7 +58,19 @@ func Scrape(url string) (ScraperResult, error) {
 func GetScraperResult() func(*gin.Context) {
 	return gin.HandlerFunc(func(c *gin.Context) {
 		id := c.Param("id")
-		scraperResult := results[id]
+		scraperResults := results[id]
+		c.JSON(200, scraperResults)
+	})
+}
+
+// GetScraperResultAtTime Get one ScraperResult with an ID as the param
+// Example: curl localhost:4000/api/v1/result/{key}
+func GetScraperResultAtTime() func(*gin.Context) {
+	return gin.HandlerFunc(func(c *gin.Context) {
+		id := c.Param("id")
+		timeStamp := c.Param("time")
+		t, _ := time.Parse(time.RFC3339, timeStamp)
+		scraperResult := results[id][t]
 		c.JSON(200, scraperResult)
 	})
 }
@@ -68,40 +85,52 @@ func GetAllScraperResults() func(*gin.Context) {
 // AddScraper Add a new scraper from JSON-data representing the ScraperTask struct
 // Example data: {"URL": "https://google.com", "Time": 10}
 // The URL key represents the URL you want to scrape, while the Time key represents the delay
-func AddScraper() func(*gin.Context) {
+func AddScraper(tasks chan ScraperTask, logger chan string) func(*gin.Context) {
 	return gin.HandlerFunc(func(c *gin.Context) {
 		var scraperTask ScraperTask
 		c.BindJSON(&scraperTask)
-		jobs <- scraperTask
+
+		var key = md5Hash(scraperTask.URL)
+		scraperTask.Key = key
+
+		tasks <- scraperTask
 		logger <- fmt.Sprintf("Added URL %s", scraperTask.URL)
+		c.String(200, scraperTask.Key)
 	})
+}
+
+func md5Hash(input string) string {
+	hasher := md5.New()
+	hasher.Write([]byte(input))
+	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 func main() {
 	gin.SetMode(gin.ReleaseMode)
-	results = make(map[string]ScraperResult)
-	jobs = make(chan ScraperTask)
-	logger = make(chan string)
+
+	var tasks = make(chan ScraperTask) // Make an channel of ScraperTasks
+	var logger = make(chan string)     // Make channel which will receive strings
+	results = make(map[string]map[time.Time]ScraperResult)
 
 	router := gin.New()             // Creates a router
 	router.Use(gin.Logger())        // Add the logger middleware
 	api := router.Group("/api/v1/") // Create a new API group
 	{
-		api.GET("/result/:id", GetScraperResult())  // Get a result from an ID
-		api.GET("/results", GetAllScraperResults()) // Get all results
-		api.POST("/scraper", AddScraper())          // Add a new task
+		api.GET("/result/:id", GetScraperResult())             // Get a result from an ID
+		api.GET("/result/:id/:time", GetScraperResultAtTime()) // Get a result from an ID and TimeStamp
+		api.GET("/results", GetAllScraperResults())            // Get all results
+		api.POST("/scraper", AddScraper(tasks, logger))        // Add a new task
 	}
 
 	go func() {
 		for {
 			select {
-			case d := <-jobs:
+			case d := <-tasks:
 				go func() {
 					for {
 						time.Sleep(time.Duration(d.Time) * time.Second)
 						scraperResult, _ := Scrape(d.URL)
-						key := d.URL
-						results[key] = scraperResult
+						results[d.Key] = map[time.Time]ScraperResult{time.Now(): scraperResult}
 						logger <- fmt.Sprintf("Scraped URL %s @ %s", scraperResult.URL, scraperResult.Date)
 					}
 				}()
@@ -111,5 +140,6 @@ func main() {
 		}
 	}()
 
+	log.Println("Starting router on port 4000")
 	router.Run(":4000")
 }
