@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ptrkrlsrd/scraper/pkg/title"
 )
 
 var results map[string]map[time.Time]ScraperResult
@@ -37,14 +38,17 @@ func Scrape(url string) (ScraperResult, error) {
 		return ScraperResult{}, err
 	}
 
+	key := md5Hash(url)
+
+	pageTitle, _ := title.GetHtmlTitle(resp.Body)
 	bytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return ScraperResult{}, err
 	}
 
 	scraperResult := ScraperResult{
-		ID:      url,     // TODO: Replace this with an unique key
-		Title:   "Title", // TODO: Replace this with the title of the page
+		ID:      key,
+		Title:   pageTitle,
 		Date:    time.Now(),
 		URL:     url,
 		Content: string(bytes),
