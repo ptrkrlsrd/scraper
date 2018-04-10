@@ -2,7 +2,6 @@ package scraper
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,18 +13,6 @@ func GetResult() func(*gin.Context) {
 		id := c.Param("id")
 		scraperResults := results[id]
 		c.JSON(200, scraperResults)
-	})
-}
-
-// GetResultAtTime Get one ScraperResult with an ID as the param
-// Example: curl localhost:4000/api/v1/result/{key}
-func GetResultAtTime() func(*gin.Context) {
-	return gin.HandlerFunc(func(c *gin.Context) {
-		id := c.Param("id")
-		timeStamp := c.Param("time")
-		t, _ := time.Parse(time.RFC3339, timeStamp)
-		scraperResult := results[id][t]
-		c.JSON(200, scraperResult)
 	})
 }
 

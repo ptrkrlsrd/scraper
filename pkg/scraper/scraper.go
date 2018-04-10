@@ -12,7 +12,7 @@ import (
 	"github.com/ptrkrlsrd/scraper/pkg/title"
 )
 
-var results map[string]map[time.Time]Result
+var results map[string][]Result
 
 // Task A task containing the URL of the page you want to scrape and the delay
 type Task struct {
@@ -32,7 +32,7 @@ type Result struct {
 
 // init Init the results map
 func init() {
-	results = make(map[string]map[time.Time]Result)
+	results = make(map[string][]Result)
 }
 
 // Scrape Scrapes the given URL, and returns a Result(plus an error)
@@ -77,7 +77,7 @@ func Listen(tasks chan Task, logger chan string) {
 				for {
 					time.Sleep(time.Duration(task.Time) * time.Second)
 					scraperResult, _ := task.Scrape()
-					results[task.Key] = map[time.Time]Result{time.Now(): scraperResult}
+					results[task.Key] = append(results[task.Key], scraperResult)
 					logger <- fmt.Sprintf("Scraped URL %s @ %s", scraperResult.URL, scraperResult.Date)
 				}
 			}()
