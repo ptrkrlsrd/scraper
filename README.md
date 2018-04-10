@@ -4,6 +4,7 @@
 
 ## Usage
 * Add a new task
+    * Note: The time is in seconds
     ```
     curl -X POST localhost:4000/api/v1/scraper -d '{"URL": "https://theverge.com", "Time": 10}'
     ```
