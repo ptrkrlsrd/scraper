@@ -39,9 +39,9 @@ func Scrape(url string) (ScraperResult, error) {
 	}
 
 	key := md5Hash(url)
-
-	pageTitle, _ := title.GetHtmlTitle(resp.Body)
 	bytes, err := ioutil.ReadAll(resp.Body)
+	pageTitle, _ := title.GetHtmlTitle(resp.Body)
+
 	if err != nil {
 		return ScraperResult{}, err
 	}
