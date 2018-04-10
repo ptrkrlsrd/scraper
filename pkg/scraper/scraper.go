@@ -112,6 +112,8 @@ func md5Hash(input string) string {
 	hasher.Write([]byte(input))
 	return hex.EncodeToString(hasher.Sum(nil))
 }
+
+// Listen Listen takes a chan of Tasks and a chan of strings and listens for in events
 func Listen(tasks chan Task, logger chan string) {
 	for {
 		select {
