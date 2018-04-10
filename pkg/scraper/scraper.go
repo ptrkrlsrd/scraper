@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/ptrkrlsrd/scraper/pkg/title"
 )
 
@@ -31,18 +30,19 @@ type Result struct {
 	Content string
 }
 
+// init Init the results map
 func init() {
 	results = make(map[string]map[time.Time]Result)
 }
 
 // Scrape Scrapes the given URL, and returns a Result(plus an error)
-func Scrape(url string) (Result, error) {
-	resp, err := http.Get(url)
+func (scraperTask *Task) Scrape() (Result, error) {
+	resp, err := http.Get(scraperTask.URL)
 	if err != nil {
 		return Result{}, err
 	}
 
-	key := md5Hash(url)
+	key := md5Hash(scraperTask.URL)
 	bytes, err := ioutil.ReadAll(resp.Body)
 	pageTitle, _ := title.GetHtmlTitle(resp.Body)
 
@@ -54,59 +54,14 @@ func Scrape(url string) (Result, error) {
 		ID:      key,
 		Title:   pageTitle,
 		Date:    time.Now(),
-		URL:     url,
+		URL:     scraperTask.URL,
 		Content: string(bytes),
 	}
 
 	return scraperResult, nil
 }
 
-// GetResult Get one ScraperResult with an ID as the param
-// Example: curl localhost:4000/api/v1/result/{key}
-func GetResult() func(*gin.Context) {
-	return gin.HandlerFunc(func(c *gin.Context) {
-		id := c.Param("id")
-		scraperResults := results[id]
-		c.JSON(200, scraperResults)
-	})
-}
-
-// GetResultAtTime Get one ScraperResult with an ID as the param
-// Example: curl localhost:4000/api/v1/result/{key}
-func GetResultAtTime() func(*gin.Context) {
-	return gin.HandlerFunc(func(c *gin.Context) {
-		id := c.Param("id")
-		timeStamp := c.Param("time")
-		t, _ := time.Parse(time.RFC3339, timeStamp)
-		scraperResult := results[id][t]
-		c.JSON(200, scraperResult)
-	})
-}
-
-// GetAllResults Returns all the results
-func GetAllResults() func(*gin.Context) {
-	return gin.HandlerFunc(func(c *gin.Context) {
-		c.JSON(200, results)
-	})
-}
-
-// AddScraper Add a new scraper from JSON-data representing the Task struct
-// Example data: {"URL": "https://google.com", "Time": 10}
-// The URL key represents the URL you want to scrape, while the Time key represents the delay
-func AddScraper(tasks chan Task, logger chan string) func(*gin.Context) {
-	return gin.HandlerFunc(func(c *gin.Context) {
-		var scraperTask Task
-		c.BindJSON(&scraperTask)
-
-		var key = md5Hash(scraperTask.URL)
-		scraperTask.Key = key
-
-		tasks <- scraperTask
-		logger <- fmt.Sprintf("Added URL %s", scraperTask.URL)
-		c.String(200, scraperTask.Key)
-	})
-}
-
+// md5Hash Run MD%-hashing on a string
 func md5Hash(input string) string {
 	hasher := md5.New()
 	hasher.Write([]byte(input))
@@ -117,12 +72,12 @@ func md5Hash(input string) string {
 func Listen(tasks chan Task, logger chan string) {
 	for {
 		select {
-		case d := <-tasks:
+		case task := <-tasks:
 			go func() {
 				for {
-					time.Sleep(time.Duration(d.Time) * time.Second)
-					scraperResult, _ := Scrape(d.URL)
-					results[d.Key] = map[time.Time]Result{time.Now(): scraperResult}
+					time.Sleep(time.Duration(task.Time) * time.Second)
+					scraperResult, _ := task.Scrape()
+					results[task.Key] = map[time.Time]Result{time.Now(): scraperResult}
 					logger <- fmt.Sprintf("Scraped URL %s @ %s", scraperResult.URL, scraperResult.Date)
 				}
 			}()
