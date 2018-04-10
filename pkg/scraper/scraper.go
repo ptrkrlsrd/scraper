@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"time"
 
@@ -30,6 +31,10 @@ type Result struct {
 	Content string
 }
 
+func init() {
+	results = make(map[string]map[time.Time]Result)
+}
+
 // Scrape Scrapes the given URL, and returns a Result(plus an error)
 func Scrape(url string) (Result, error) {
 	resp, err := http.Get(url)
@@ -38,9 +43,9 @@ func Scrape(url string) (Result, error) {
 	}
 
 	key := md5Hash(url)
-
-	pageTitle, _ := title.GetHtmlTitle(resp.Body)
 	bytes, err := ioutil.ReadAll(resp.Body)
+	pageTitle, _ := title.GetHtmlTitle(resp.Body)
+
 	if err != nil {
 		return Result{}, err
 	}
@@ -106,4 +111,21 @@ func md5Hash(input string) string {
 	hasher := md5.New()
 	hasher.Write([]byte(input))
 	return hex.EncodeToString(hasher.Sum(nil))
+}
+func Listen(tasks chan Task, logger chan string) {
+	for {
+		select {
+		case d := <-tasks:
+			go func() {
+				for {
+					time.Sleep(time.Duration(d.Time) * time.Second)
+					scraperResult, _ := Scrape(d.URL)
+					results[d.Key] = map[time.Time]Result{time.Now(): scraperResult}
+					logger <- fmt.Sprintf("Scraped URL %s @ %s", scraperResult.URL, scraperResult.Date)
+				}
+			}()
+		case logString := <-logger:
+			log.Println(logString)
+		}
+	}
 }
