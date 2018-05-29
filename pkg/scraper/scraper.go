@@ -61,7 +61,7 @@ func (scraperTask *Task) Scrape() (Result, error) {
 	return scraperResult, nil
 }
 
-// md5Hash Run MD%-hashing on a string
+// md5Hash Run MD5-hashing on a string
 func md5Hash(input string) string {
 	hasher := md5.New()
 	hasher.Write([]byte(input))
