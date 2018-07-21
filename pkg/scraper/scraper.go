@@ -32,6 +32,7 @@ type Result struct {
 
 // init Init the results map
 func init() {
+	log.SetPrefix("[Scraper] ")
 	results = make(map[string][]Result)
 }
 
@@ -42,9 +43,10 @@ func (scraperTask *Task) Scrape() (Result, error) {
 		return Result{}, err
 	}
 
+	body := resp.Body
 	key := md5Hash(scraperTask.URL)
-	bytes, err := ioutil.ReadAll(resp.Body)
-	pageTitle, _ := title.GetHtmlTitle(resp.Body)
+	bytes, err := ioutil.ReadAll(body)
+	pageTitle, err := title.GetHtmlTitle(body)
 
 	if err != nil {
 		return Result{}, err
@@ -68,7 +70,7 @@ func md5Hash(input string) string {
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-// Listen Listen takes a chan of Tasks and a chan of strings and listens for in events
+// Listen Listen takes a chan of Tasks and a chan of strings and listens for events
 func Listen(tasks chan Task, logger chan string) {
 	for {
 		select {
@@ -76,7 +78,10 @@ func Listen(tasks chan Task, logger chan string) {
 			go func() {
 				for {
 					time.Sleep(time.Duration(task.Time) * time.Second)
-					scraperResult, _ := task.Scrape()
+					scraperResult, err := task.Scrape()
+					if err != nil {
+						log.Println(err)
+					}
 					results[task.Key] = append(results[task.Key], scraperResult)
 					logger <- fmt.Sprintf("Scraped URL %s @ %s", scraperResult.URL, scraperResult.Date)
 				}
