@@ -12,8 +12,16 @@ import (
 	"github.com/ptrkrlsrd/scraper/pkg/title"
 )
 
-// TODO: Avoid this global variable, and store results in a struct
-var results map[string][]Result
+type Service struct {
+	Results map[string][]Result
+}
+
+func NewService() Service {
+	results := make(map[string][]Result)
+	return Service{
+		Results: results,
+	}
+}
 
 // Task A task containing the URL of the page you want to scrape and the delay
 type Task struct {
@@ -31,10 +39,16 @@ type Result struct {
 	Content string
 }
 
-// init Init the results map
+// init Init
 func init() {
 	log.SetPrefix("[Scraper] ")
-	results = make(map[string][]Result)
+}
+
+// md5Hash Run MD5-hashing on a string
+func md5Hash(input string) string {
+	hasher := md5.New()
+	hasher.Write([]byte(input))
+	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 // Scrape Scrapes the given URL, and returns a Result(plus an error)
@@ -47,7 +61,7 @@ func (scraperTask *Task) Scrape() (Result, error) {
 	body := resp.Body
 	key := md5Hash(scraperTask.URL)
 	bytes, err := ioutil.ReadAll(body)
-	pageTitle, err := title.GetHtmlTitle(body)
+	pageTitle, _ := title.GetHtmlTitle(body)
 
 	if err != nil {
 		return Result{}, err
@@ -64,15 +78,8 @@ func (scraperTask *Task) Scrape() (Result, error) {
 	return scraperResult, nil
 }
 
-// md5Hash Run MD5-hashing on a string
-func md5Hash(input string) string {
-	hasher := md5.New()
-	hasher.Write([]byte(input))
-	return hex.EncodeToString(hasher.Sum(nil))
-}
-
 // Listen Listen takes a chan of Tasks and a chan of strings and listens for events
-func Listen(tasks chan Task, logger chan string) {
+func (service *Service) Listen(tasks chan Task, logger chan string) {
 	for {
 		select {
 		case task := <-tasks:
@@ -83,7 +90,8 @@ func Listen(tasks chan Task, logger chan string) {
 					if err != nil {
 						log.Println(err)
 					}
-					results[task.Key] = append(results[task.Key], scraperResult)
+					// Probably not safe for concurrency
+					service.Results[task.Key] = append(service.Results[task.Key], scraperResult)
 					logger <- fmt.Sprintf("Scraped URL %s @ %s", scraperResult.URL, scraperResult.Date)
 				}
 			}()

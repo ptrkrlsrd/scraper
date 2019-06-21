@@ -21,7 +21,7 @@ func traverse(n *html.Node) (string, error) {
 		}
 	}
 
-	return "", errors.New("Could not find title in")
+	return "", errors.New("Could not find title in html")
 }
 
 func GetHtmlTitle(r io.Reader) (string, error) {
