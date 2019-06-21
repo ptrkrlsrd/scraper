@@ -12,6 +12,7 @@ import (
 	"github.com/ptrkrlsrd/scraper/pkg/title"
 )
 
+// TODO: Avoid this global variable, and store results in a struct
 var results map[string][]Result
 
 // Task A task containing the URL of the page you want to scrape and the delay
